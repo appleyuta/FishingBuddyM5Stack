@@ -82,6 +82,15 @@ static void pack(uint8_t* buffer, int offset, float dataX, float dataY, float da
 
 }
 
+// 合成ベクトルの大きさを計算
+float calcVectorNorm(float X, float Y, float Z) {
+  return sqrt(X*X + Y*Y + Z*Z);
+}
+
+// 当たり判定
+bool judgeHit(float vec_norm) {
+  return vec_norm >= 700;
+}
 
 void setup()
 {
@@ -98,8 +107,8 @@ void setup()
   M5.Power.begin();
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(100, 0);
-  M5.Lcd.println("MPU6886 TEST");
+  M5.Lcd.setCursor(20, 0);
+  M5.Lcd.println("Fishing Buddy BLE Server");
   M5.Lcd.setCursor(10, 25);
   M5.Lcd.println("  X      Y       Z");
   M5.Lcd.setCursor(10, 210);
@@ -111,30 +120,41 @@ void setup()
 void loop()
 {
     // put your main code here, to run repeatedly:
-  imu6886.getGyroData(&gyroX,&gyroY,&gyroZ);
-  imu6886.getAccelData(&accX,&accY,&accZ);
+  imu6886.getGyroData(&gyroX, &gyroY, &gyroZ);
+  imu6886.getAccelData(&accX, &accY, &accZ);
   imu6886.getTempData(&temp);
 
-  M5.Lcd.setCursor(10, 70);
-  M5.Lcd.printf("%.2f   %.2f   %.2f   ", gyroX, gyroY,gyroZ);
-  M5.Lcd.setCursor(270, 70);
+  float vec_norm = calcVectorNorm(gyroX, gyroY, gyroZ);
+  bool judge_hit = judgeHit(vec_norm);
+
+  M5.Lcd.setCursor(10, 50);
+  M5.Lcd.printf("%.2f   %.2f   %.2f   ", gyroX, gyroY, gyroZ);
+  M5.Lcd.setCursor(270, 50);
   M5.Lcd.print("o/s");
-  M5.Lcd.setCursor(10, 140);
-  M5.Lcd.printf("%.2f   %.2f   %.2f   ",accX ,accY , accZ);
-  M5.Lcd.setCursor(270, 140);
+  M5.Lcd.setCursor(10, 100);
+  M5.Lcd.printf("%.2f   %.2f   %.2f   ", accX, accY, accZ);
+  M5.Lcd.setCursor(270, 100);
   M5.Lcd.print("G");
-  M5.Lcd.setCursor(10, 210);
+  
+
+  M5.Lcd.setCursor(10, 150);
+  M5.Lcd.printf("gyro_vec_norm: %.2f", vec_norm);
+  M5.Lcd.setCursor(10, 170);
+  M5.Lcd.printf("judge_hit: %d", judge_hit);
+  // M5.Lcd.setCursor(10, 210);
   // M5.Lcd.printf("Temperature : %.2f C", temp);
 
   // BLE送信
   // BLEでのデータ通知用バッファを定義
-  uint8_t dataBuffer[12];
+  uint8_t dataBuffer[13];
   // ジャイロセンサーと加速度センサーのデータをdataBufferに格納
   // BLEでは最大20Byteまでしかデータを送信できないため、float32->float16に変換して送信
   pack(dataBuffer, 0, gyroX, gyroY, gyroZ);
   pack(dataBuffer, 6, accX, accY, accZ);
-  pCharacteristic->setValue(dataBuffer, 12);
+  // 当たり判定結果を格納
+  dataBuffer[12] = (uint8_t)judge_hit;
+  pCharacteristic->setValue(dataBuffer, 13);
   pCharacteristic->notify(); // 通知を送信
 
-  delay(500);
+  delay(100);
 }
