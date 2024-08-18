@@ -25,8 +25,6 @@ float accZ = 0;
 float gyroX = 0;
 float gyroY = 0;
 float gyroZ = 0;
-// 温度
-float temp = 0;
 // Bluetooth送信クラス
 BLECharacteristic *pCharacteristic = NULL;
 
@@ -47,7 +45,6 @@ void startService(BLEServer *pServer)
       // BLECharacteristic::PROPERTY_WRITE
       );
   pCharacteristic->addDescriptor(new BLE2902()); // Descriptorを定義しておかないとClient側でエラーログが出力される
-  // pCharacteristic->setValue("Hello World");
 
   pService->start();
 }
@@ -88,14 +85,16 @@ float calcVectorNorm(float X, float Y, float Z) {
 }
 
 // 当たり判定
-bool judgeHit(float vec_norm) {
-  return vec_norm >= 700;
+bool judgeHit(float X, float Y, float Z) {
+  float vec_norm = calcVectorNorm(X, Y, Z);
+  return vec_norm >= 600;
 }
 
 void setup()
 {
   // put your setup code here, to run once:
   M5.begin();
+  M5.Power.begin();
   Serial.begin(115200);
 
   // Bluetooth初期化、通信開始
@@ -104,10 +103,9 @@ void setup()
   startService(pServer);
   startAdvertising();
 
-  M5.Power.begin();
   M5.Lcd.fillScreen(BLACK);
   M5.Lcd.setTextSize(2);
-  M5.Lcd.setCursor(20, 0);
+  M5.Lcd.setCursor(10, 0);
   M5.Lcd.println("Fishing Buddy BLE Server");
   M5.Lcd.setCursor(10, 25);
   M5.Lcd.println("  X      Y       Z");
@@ -122,10 +120,10 @@ void loop()
     // put your main code here, to run repeatedly:
   imu6886.getGyroData(&gyroX, &gyroY, &gyroZ);
   imu6886.getAccelData(&accX, &accY, &accZ);
-  imu6886.getTempData(&temp);
 
+  // ジャイロXYZ軸の合成ベクトルのノルムを計算し、当たりを判定
   float vec_norm = calcVectorNorm(gyroX, gyroY, gyroZ);
-  bool judge_hit = judgeHit(vec_norm);
+  bool judge_hit = judgeHit(gyroX, gyroY, gyroZ);
 
   M5.Lcd.setCursor(10, 50);
   M5.Lcd.printf("%.2f   %.2f   %.2f   ", gyroX, gyroY, gyroZ);
@@ -141,8 +139,6 @@ void loop()
   M5.Lcd.printf("gyro_vec_norm: %.2f", vec_norm);
   M5.Lcd.setCursor(10, 170);
   M5.Lcd.printf("judge_hit: %d", judge_hit);
-  // M5.Lcd.setCursor(10, 210);
-  // M5.Lcd.printf("Temperature : %.2f C", temp);
 
   // BLE送信
   // BLEでのデータ通知用バッファを定義
